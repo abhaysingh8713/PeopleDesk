@@ -36,14 +36,23 @@ Push the project to GitHub, then create a Community Cloud app using repository `
 
 For the PeopleDesk TiDB Cloud Starter instance, use the host and username shown by its **Connect** panel, port `4000`, and database `peopledesk`:
 
+In TiDB SQL Editor, create a separate app user with a new password instead of using the generated admin account:
+
+```sql
+CREATE USER 'peopledesk_app'@'%' IDENTIFIED BY 'replace-with-a-new-strong-secret';
+GRANT SELECT, INSERT, DELETE, CREATE ON peopledesk.* TO 'peopledesk_app'@'%';
+```
+
+Use the exact app username format shown by the TiDB **Connect** panel.
+
 ```toml
 MYSQL_HOST = "your-mysql-host"
 MYSQL_PORT = 4000
 MYSQL_DATABASE = "peopledesk"
-MYSQL_USER = "your-tiDB-connection-user"
+MYSQL_USER = "your-dedicated-app-user"
 MYSQL_PASSWORD = "your-new-strong-secret"
 MYSQL_SSL_VERIFY = true
-PORTAL_PASSWORD = "your-private-portal-password"
+PORTAL_PASSWORD = "choose-a-different-private-portal-password"
 ```
 
 Use a managed MySQL host reachable from Streamlit Community Cloud; `localhost` refers to the hosted app container, not your development PC. TiDB Cloud Starter requires TLS; `MYSQL_SSL_VERIFY = true` enables CA and hostname verification. `PORTAL_PASSWORD` protects employee names, contact details, and salary data from anonymous visitors. Keep both passwords only in Community Cloud Secrets. Rotate the one-time TiDB connection password that was exposed during setup before using it.
