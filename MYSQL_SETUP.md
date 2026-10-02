@@ -46,10 +46,10 @@ GRANT SELECT, INSERT, DELETE, CREATE ON peopledesk.* TO 'peopledesk_app'@'%';
 Use the exact app username format shown by the TiDB **Connect** panel.
 
 ```toml
-MYSQL_HOST = "your-mysql-host"
+MYSQL_HOST = "your-tiDB-public-host"
 MYSQL_PORT = 4000
 MYSQL_DATABASE = "peopledesk"
-MYSQL_USER = "your-dedicated-app-user"
+MYSQL_USER = "your-dedicated-tiDB-app-user"
 MYSQL_PASSWORD = "your-new-strong-secret"
 MYSQL_SSL_VERIFY = true
 PORTAL_PASSWORD = "choose-a-different-private-portal-password"
