@@ -3,6 +3,7 @@ import altair as alt
 import pandas as pd
 from streamlit.errors import StreamlitSecretNotFoundError
 from streamlit_autorefresh import st_autorefresh
+import hmac
 import os
 from datetime import datetime
 import re
@@ -30,15 +31,23 @@ def open_mysql_connection():
         import mysql.connector
     except ImportError as error:
         raise RuntimeError("Install the project dependencies with `pip install -r requirements.txt`.") from error
-    return mysql.connector.connect(
-        host=host,
-        port=int(get_mysql_setting("MYSQL_PORT", "3306")),
-        database=database,
-        user=user,
-        password=password,
-        connection_timeout=5,
-        charset="utf8mb4"
-    )
+    connection_options = {
+        "host": host,
+        "port": int(get_mysql_setting("MYSQL_PORT", "3306")),
+        "database": database,
+        "user": user,
+        "password": password,
+        "connection_timeout": 5,
+        "charset": "utf8mb4"
+    }
+    if get_mysql_setting("MYSQL_SSL_VERIFY", "false").strip().lower() == "true":
+        import certifi
+        connection_options.update(
+            ssl_ca=certifi.where(),
+            ssl_verify_cert=True,
+            ssl_verify_identity=True
+        )
+    return mysql.connector.connect(**connection_options)
 
 def initialize_database(connection):
     cursor = connection.cursor()
@@ -213,6 +222,38 @@ def format_employee_option(df, employee_id):
     employee = df.loc[df["EmployeeId"] == employee_id].iloc[0]
     return f"{employee['Name']} · {employee['Email']}"
 
+def require_portal_access():
+    expected_password = get_mysql_setting("PORTAL_PASSWORD").strip()
+    if not expected_password:
+        st.markdown("""
+        <div class="portal-hero">
+          <div class="eyebrow">PeopleDesk · Setup required</div>
+          <h1>Secure access is not configured.</h1>
+          <p>Set PORTAL_PASSWORD in Streamlit Community Cloud Secrets before opening employee data.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.stop()
+
+    if st.session_state.get("portal_authenticated"):
+        return
+
+    st.markdown("""
+    <div class="portal-hero">
+      <div class="eyebrow">PeopleDesk · Workforce operations</div>
+      <h1>Sign in to your portal.</h1>
+      <p>Enter your private portal password to continue.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    with st.form("portal_login"):
+        entered_password = st.text_input("Portal password", type="password")
+        submitted = st.form_submit_button("Unlock portal", type="primary")
+    if submitted:
+        if hmac.compare_digest(entered_password, expected_password):
+            st.session_state["portal_authenticated"] = True
+            st.rerun()
+        st.error("Incorrect portal password.")
+    st.stop()
+
 # ---------------- PAGE CONFIG ---------------- #
 
 st.set_page_config(
@@ -259,6 +300,8 @@ h1 { font-size: 2rem !important; font-weight: 800 !important; }
 </style>
 """, unsafe_allow_html=True)
 
+require_portal_access()
+
 # ---------------- SIDEBAR ---------------- #
 
 st.sidebar.markdown(
@@ -269,6 +312,9 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 st.sidebar.divider()
+if st.sidebar.button("Log out", icon=":material/logout:", width="stretch"):
+    st.session_state["portal_authenticated"] = False
+    st.rerun()
 
 menu = st.sidebar.radio(
     "Go To",

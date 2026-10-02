@@ -22,23 +22,30 @@ $env:MYSQL_PORT = '3306'
 $env:MYSQL_DATABASE = 'peopledesk'
 $env:MYSQL_USER = 'peopledesk_app'
 $env:MYSQL_PASSWORD = '<set-this-in-your-local-environment>'
+$env:PORTAL_PASSWORD = '<choose-a-private-portal-password>'
 python -m streamlit run app.py
 ```
 
 For a remote MySQL server, set `MYSQL_HOST` to its hostname and create the application user for the connecting host instead of `localhost`. Keep the password in an environment secret; never commit it to source control.
 
-The database must exist before starting the app. On first connection, the app creates the `employees` and `app_migrations` tables. Existing rows in `validation.csv` are imported once and tracked in `app_migrations`; the CSV remains as a backup, while new records are written directly to MySQL.
+The database must exist before starting the app. On first connection, the app creates the `employees` and `app_migrations` tables. If `validation.csv` is present locally, it is imported once and tracked in `app_migrations`; it is ignored by Git and is not included in the public repository. Rows already in a local MySQL server are not copied automatically.
 
 ## Deploy on Streamlit Community Cloud
 
 Push the project to GitHub, then create a Community Cloud app using repository `abhaysingh8713/PeopleDesk`, branch `main`, and entry point `app.py`. In the app's **Settings > Secrets**, add TOML values for the remote MySQL server:
 
+For the PeopleDesk TiDB Cloud Starter instance, use the host and username shown by its **Connect** panel, port `4000`, and database `peopledesk`:
+
 ```toml
 MYSQL_HOST = "your-mysql-host"
-MYSQL_PORT = 3306
+MYSQL_PORT = 4000
 MYSQL_DATABASE = "peopledesk"
-MYSQL_USER = "peopledesk_app"
-MYSQL_PASSWORD = "your-secret-password"
+MYSQL_USER = "your-tiDB-connection-user"
+MYSQL_PASSWORD = "your-new-strong-secret"
+MYSQL_SSL_VERIFY = true
+PORTAL_PASSWORD = "your-private-portal-password"
 ```
 
-Use a managed MySQL host reachable from Streamlit Community Cloud; `localhost` refers to the hosted app container, not your development PC. Keep the database password only in Community Cloud Secrets.
+Use a managed MySQL host reachable from Streamlit Community Cloud; `localhost` refers to the hosted app container, not your development PC. TiDB Cloud Starter requires TLS; `MYSQL_SSL_VERIFY = true` enables CA and hostname verification. `PORTAL_PASSWORD` protects employee names, contact details, and salary data from anonymous visitors. Keep both passwords only in Community Cloud Secrets. Rotate the one-time TiDB connection password that was exposed during setup before using it.
+
+The current two records remain in the local MySQL database. Export/import them to TiDB only if they are safe to publish to this password-protected cloud portal; otherwise, start with the empty hosted database.
