@@ -1,6 +1,7 @@
 import streamlit as st
 import altair as alt
 import pandas as pd
+from streamlit.errors import StreamlitSecretNotFoundError
 from streamlit_autorefresh import st_autorefresh
 import os
 from datetime import datetime
@@ -9,20 +10,29 @@ import re
 LEGACY_CSV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "validation.csv")
 MYSQL_DATABASE_ENV = "MYSQL_DATABASE"
 
+def get_mysql_setting(name, default=""):
+    environment_value = os.getenv(name)
+    if environment_value:
+        return environment_value
+    try:
+        return str(st.secrets.get(name, default))
+    except StreamlitSecretNotFoundError:
+        return default
+
 def open_mysql_connection():
-    host = os.getenv("MYSQL_HOST", "localhost").strip()
-    database = os.getenv(MYSQL_DATABASE_ENV, "peopledesk").strip()
-    user = os.getenv("MYSQL_USER", "").strip()
-    password = os.getenv("MYSQL_PASSWORD", "")
+    host = get_mysql_setting("MYSQL_HOST", "localhost").strip()
+    database = get_mysql_setting(MYSQL_DATABASE_ENV, "peopledesk").strip()
+    user = get_mysql_setting("MYSQL_USER").strip()
+    password = get_mysql_setting("MYSQL_PASSWORD")
     if not user or not password:
-        raise RuntimeError("Set MYSQL_USER and MYSQL_PASSWORD environment variables to connect to MySQL.")
+        raise RuntimeError("Set MYSQL_USER and MYSQL_PASSWORD as environment variables or Streamlit secrets to connect to MySQL.")
     try:
         import mysql.connector
     except ImportError as error:
         raise RuntimeError("Install the project dependencies with `pip install -r requirements.txt`.") from error
     return mysql.connector.connect(
         host=host,
-        port=int(os.getenv("MYSQL_PORT", "3306")),
+        port=int(get_mysql_setting("MYSQL_PORT", "3306")),
         database=database,
         user=user,
         password=password,
